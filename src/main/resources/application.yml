@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: ServerScript
+
+  data:
+    mongodb:
+      uri: mongodb+srv://admin:9Z3f1j48dOWD8ZiK@cluster0.x05fzte.mongodb.net/marketplace?retryWrites=true&w=majority&appName=Cluster0&connectTimeoutMS=15000&socketTimeoutMS=15000&serverSelectionTimeoutMS=10000&maxConnectionIdleTimeMS=30000
+
+server:
+  port: 8081
+
+logging:
+  level:
+    root: INFO
+    org.springframework.web: DEBUG
