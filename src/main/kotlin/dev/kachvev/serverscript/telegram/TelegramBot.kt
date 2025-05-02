@@ -6,6 +6,7 @@ import com.github.kotlintelegrambot.dispatcher.*
 import com.github.kotlintelegrambot.dispatcher.handlers.TextHandlerEnvironment
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
+import com.github.kotlintelegrambot.entities.ParseMode
 import com.github.kotlintelegrambot.entities.TelegramFile
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
 import com.github.kotlintelegrambot.logging.LogLevel
@@ -32,6 +33,7 @@ class TelegramBot(
     val mongoTemplate: MongoTemplate
 ) {
     val awaiter = TelegramAwaiter()
+    val userPendingUpload = mutableMapOf<Long, LuaScript>()
     val pendingScripts = mutableMapOf<String, LuaScript>()
     val reviewChannelId = ChatId.fromId(-4708596381)
 
@@ -74,7 +76,7 @@ class TelegramBot(
                 bot.sendMessage(
                     ChatId.fromId(chatId),
                     text = "🛠 *Админ-меню*",
-                    parseMode = com.github.kotlintelegrambot.entities.ParseMode.MARKDOWN,
+                    parseMode = ParseMode.MARKDOWN,
                     replyMarkup = markup
                 )
             }
@@ -126,47 +128,70 @@ class TelegramBot(
             }
             callbackQuery(Buttons.Marketplace.UPLOAD) {
                 val chatId = callbackQuery.message?.chat?.id ?: return@callbackQuery
-                if (authService.findUserByTelegramId(chatId.toString()) == null) {
-                    bot.sendMessage(ChatId.fromId(chatId), "❌ Ваш аккаунт не привязан.")
-                    return@callbackQuery
-                }
 
-                bot.sendMessage(ChatId.fromId(chatId), "📥 Пожалуйста, отправьте Lua-скрипт для загрузки.")
+                bot.sendMessage(ChatId.fromId(chatId), "📥 Введите название скрипта:")
+                awaiter.awaitText(chatId) { env ->
+                    val name = env.message.text?.trim().orEmpty()
+                    val luaScript = LuaScript(name = name, content = "")
+                    userPendingUpload[chatId] = luaScript
 
-                awaiter.awaitDocument(chatId) { env ->
-                    val media = env.media
-                    val message = env.message
+                    bot.sendMessage(ChatId.fromId(chatId), "✏️ Теперь введите описание скрипта:")
+                    awaiter.awaitText(chatId) { descEnv ->
+                        val updated = userPendingUpload[chatId]?.copy(description = descEnv.message.text?.trim().orEmpty())
+                        if (updated != null) userPendingUpload[chatId] = updated
 
-                    val fileContent = downloadFileContent(media.fileId) ?: return@awaitDocument
-                    val telegramId = message.chat.id.toString()
-                    val user = authService.findUserByTelegramId(telegramId)
-
-                    val script = LuaScript(
-                        name = media.fileName ?: "unknown.lua",
-                        content = fileContent,
-                        author = user?.nickname ?: "unknown"
-                    )
-
-                    bot.sendMessage(
-                        ChatId.fromId(message.chat.id),
-                        "✅ Скрипт `${media.fileName}` успешно отправлен на проверку администраторам!"
-                    )
-
-                    bot.sendDocument(
-                        chatId = reviewChannelId,
-                        document = TelegramFile.ByFileId(media.fileId),
-                        caption = "📄 Новый скрипт от ${script.author}: `${script.name}`",
-                        replyMarkup = InlineKeyboardMarkup.create(
-                            listOf(
-                                listOf(
-                                    InlineKeyboardButton.CallbackData("✅ Принять", "approve:${script.name}"),
-                                    InlineKeyboardButton.CallbackData("❌ Отклонить", "reject:${script.name}")
-                                )
+                        bot.sendMessage(ChatId.fromId(chatId), "🎥 Теперь отправьте ссылку на видео или напишите `none`:")
+                        awaiter.awaitText(chatId) { videoEnv ->
+                            val videoUrl = videoEnv.message.text?.trim().orEmpty()
+                            val finalScript = userPendingUpload[chatId]?.copy(
+                                videoUrl = if (videoUrl.lowercase() == "none") "none" else videoUrl
                             )
-                        )
-                    )
 
-                    pendingScripts[script.name] = script
+                            if (finalScript != null) userPendingUpload[chatId] = finalScript
+
+                            bot.sendMessage(ChatId.fromId(chatId), "📄 Теперь отправьте сам Lua-скрипт файлом:")
+                            awaiter.awaitDocument(chatId) { fileEnv ->
+                                val file = fileEnv.media
+                                val fileContent = downloadFileContent(file.fileId)
+
+                                if (fileContent == null) {
+                                    bot.sendMessage(ChatId.fromId(chatId), "❌ Не удалось скачать файл.")
+                                    return@awaitDocument
+                                }
+
+                                val user = authService.findUserByTelegramId(chatId.toString())
+
+                                val readyScript = userPendingUpload[chatId]?.copy(
+                                    content = fileContent,
+                                    author = user?.nickname ?: "unknown",
+                                    authorTelegram = user?.telegramId?.let { "tg://user?id=$it" } ?: "None"
+                                )
+
+                                if (readyScript != null) {
+                                    userPendingUpload.remove(chatId)
+                                    pendingScripts[readyScript.name] = readyScript
+
+                                    bot.sendDocument(
+                                        chatId = reviewChannelId,
+                                        document = TelegramFile.ByFileId(file.fileId),
+                                        caption = "📄 Новый скрипт `${readyScript.name}` от ${readyScript.author}",
+                                        replyMarkup = InlineKeyboardMarkup.create(
+                                            listOf(
+                                                listOf(
+                                                    InlineKeyboardButton.CallbackData("✅ Принять", "approve:${readyScript.name}"),
+                                                    InlineKeyboardButton.CallbackData("❌ Отклонить", "reject:${readyScript.name}")
+                                                )
+                                            )
+                                        )
+                                    )
+
+                                    bot.sendMessage(ChatId.fromId(chatId), "✅ Скрипт отправлен на проверку администраторам!")
+                                } else {
+                                    bot.sendMessage(ChatId.fromId(chatId), "❌ Ошибка при подготовке скрипта.")
+                                }
+                            }
+                        }
+                    }
                 }
             }
             callbackQuery(Buttons.Marketplace.PAGE) {
@@ -214,36 +239,6 @@ class TelegramBot(
 
                 sendMarketplacePage(chatId, safePage, messageId)
             }
-            callbackQuery(Buttons.AdminMenu.STATS) {
-                val chatId = callbackQuery.message?.chat?.id ?: return@callbackQuery
-
-                if (!isAdmin(chatId)) {
-                    bot.answerCallbackQuery(callbackQuery.id, text = "❌ Нет доступа.", showAlert = true)
-                    return@callbackQuery
-                }
-
-                val users = authService.findUsersLoggedInToday()
-                if (users.isEmpty()) {
-                    bot.sendMessage(ChatId.fromId(chatId), "📭 Сегодня ещё никто не заходил.")
-                    return@callbackQuery
-                }
-
-                val text = buildString {
-                    append("📊 *Статистика за сегодня:*\n\n")
-                    users.forEach { user ->
-                        val minutesAgo = java.time.Duration.between(user.lastLogin, dev.kachvev.serverscript.ext.nowMoscow()).toMinutes()
-                        val niceMinutesAgo = if (minutesAgo < 1) "Только что" else "$minutesAgo минут назад"
-                        val usernameLink = user.telegramId?.let { "[${user.nickname}](tg://user?id=$it)" } ?: user.nickname
-                        append("• $usernameLink — $niceMinutesAgo\n")
-                    }
-                }
-
-                bot.sendMessage(
-                    ChatId.fromId(chatId),
-                    text = text,
-                    parseMode = com.github.kotlintelegrambot.entities.ParseMode.MARKDOWN
-                )
-            }
             callbackQuery(Buttons.AdminMenu.DELETE_SCRIPT) {
                 val chatId = callbackQuery.message?.chat?.id ?: return@callbackQuery
 
@@ -276,8 +271,9 @@ class TelegramBot(
 
             callbackQuery {
                 val data = callbackQuery.data
+                val chatId = callbackQuery.message?.chat?.id ?: return@callbackQuery
+
                 if (data.startsWith("approve:") || data.startsWith("reject:")) {
-                    val chatId = callbackQuery.message?.chat?.id ?: return@callbackQuery
                     val parts = data.split(":")
                     val action = parts[0]
                     val scriptName = parts.getOrNull(1) ?: return@callbackQuery
@@ -292,22 +288,62 @@ class TelegramBot(
                         "approve" -> {
                             luaRepository.save(script)
                             bot.sendMessage(
-                                chatId = ChatId.fromId(chatId),
-                                text = "✅ Скрипт `${script.name}` принят и добавлен в ваш список доступных скриптов."
+                                chatId = ChatId.fromId(callbackQuery.message?.chat?.id ?: return@callbackQuery),
+                                text = "✅ Скрипт `${script.name}` принят и сохранён в базе."
                             )
                         }
                         "reject" -> {
                             bot.sendMessage(
-                                chatId = ChatId.fromId(chatId),
-                                text = "❌ Скрипт `${script.name}` отклонён. Вы можете загрузить новый."
+                                chatId = ChatId.fromId(callbackQuery.message?.chat?.id ?: return@callbackQuery),
+                                text = "❌ Скрипт `${script.name}` отклонён."
                             )
+                        }
+                    }
+                    pendingScripts.remove(scriptName)
+                    bot.answerCallbackQuery(callbackQuery.id, text = "Готово!")
+                }
 
+                if (data.startsWith("viewscript:")) {
+                    val scriptName = data.substringAfter("viewscript:")
+
+                    val script = luaRepository.findByName(scriptName)
+                    if (script == null) {
+                        bot.answerCallbackQuery(callbackQuery.id, text = "❌ Скрипт не найден.", showAlert = true)
+                        return@callbackQuery
+                    }
+
+                    val user = authService.findUserByTelegramId(chatId.toString()) ?: return@callbackQuery
+
+                    val text = buildString {
+                        append("📄 *${script.name}*\n\n")
+                        append("🧾 *Описание:* ${script.description}\n")
+                        append("👤 *Автор:* ${script.author}\n")
+                        if (script.authorTelegram != "None") {
+                            append("🔗 [Telegram профиля](${script.authorTelegram})\n")
+                        }
+                        if (script.videoUrl != "none") {
+                            append("\n🎥 [Видео-обзор](${script.videoUrl})")
                         }
                     }
 
-                    pendingScripts.remove(scriptName)
+                    val hasAccess = user.accessibleScripts.contains(script.name)
+                    val buttonText = if (hasAccess) "❌ Удалить из списка" else "➕ Добавить в список"
 
-                    bot.answerCallbackQuery(callbackQuery.id, text = "Готово!")
+                    bot.sendMessage(
+                        chatId = ChatId.fromId(chatId),
+                        text = text,
+                        parseMode = ParseMode.MARKDOWN,
+                        replyMarkup = InlineKeyboardMarkup.create(
+                            listOf(
+                                listOf(
+                                    InlineKeyboardButton.CallbackData(buttonText, "${Buttons.Marketplace.ADD_SCRIPT}:${script.name}")
+                                )
+                            )
+                        )
+                    )
+
+
+                    bot.answerCallbackQuery(callbackQuery.id)
                 }
             }
 
@@ -399,7 +435,7 @@ class TelegramBot(
                 listOf(
                     InlineKeyboardButton.CallbackData(
                         text = buttonText,
-                        callbackData = "${Buttons.Marketplace.ADD_SCRIPT}:${script.name}"
+                        callbackData = "viewscript:${script.name}"
                     )
                 )
             )

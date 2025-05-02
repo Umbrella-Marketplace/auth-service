@@ -13,7 +13,7 @@ class TelegramService {
 
     val restTemplate = RestTemplate()
 
-    fun sendMessage(chatId: Long, message: String) {
+    fun sendMessage(chatId: String, message: String) {
         val url = "https://api.telegram.org/bot$botToken/sendMessage"
 
         val headers = HttpHeaders().apply {

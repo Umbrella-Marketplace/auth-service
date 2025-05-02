@@ -21,7 +21,7 @@ class LuaScriptController(
 
         return ResponseEntity.ok(
             LuaScriptResponse(
-                name = script.name,
+                name = script.name + ".lua",
                 content = script.content
             )
         )
