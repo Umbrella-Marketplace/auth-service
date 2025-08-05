@@ -1,1 +1,1 @@
-rootProject.name = "ServerScript"
+rootProject.name = "auth-service"
