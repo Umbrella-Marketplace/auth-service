@@ -8,29 +8,24 @@ import java.util.*
 @Service
 class TempKeyService {
     data class Key(
-        val id: UUID,
-        val name: String,
+        val id: UUID = UUID.randomUUID(),
         val userId: String,
+        val name: String,
         val validUntil: Instant = Instant.now().plusSeconds(600)
     )
+    private val keys = mutableMapOf<UUID, Key>()
 
-    private val tempKeys = mutableMapOf<UUID, Key>()
-
-    fun generate(name: String, userId: String): Key {
-        val key = Key(UUID.randomUUID(), name, userId)
-        tempKeys[key.id] = key
-        return key
+    fun createOrGet(userId: String, username: String): Key {
+        val now = Instant.now()
+        val existing = keys.values.find { it.userId == userId && it.validUntil.isAfter(now) }
+        return existing ?: Key(userId = userId, name = username).also { keys[it.id] = it }
     }
 
-    fun getKey(keyId: UUID): Key? = tempKeys[keyId]
+    fun getKey(id: UUID): Key? = keys[id]
 
-    @Scheduled(fixedRate = 60 * 1000)
+    @Scheduled(fixedRate = 10 * 60 * 1000)
     fun clearExpiredKeys() {
-        tempKeys.forEach { (_, key) ->
-            if (key.validUntil < Instant.now()) {
-                tempKeys.remove(key.id)
-            }
-        }
+        val now = Instant.now()
+        keys.entries.removeIf { it.value.validUntil.isBefore(now) }
     }
-
 }
