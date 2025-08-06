@@ -6,8 +6,8 @@ import org.springframework.scheduling.annotation.EnableScheduling
 
 @SpringBootApplication
 @EnableScheduling
-class AuthServerApplication
+class AuthServiceApplication
 
 fun main(args: Array<String>) {
-    runApplication<AuthServerApplication>(*args)
+    runApplication<AuthServiceApplication>(*args)
 }

@@ -22,6 +22,9 @@ dependencies {
     implementation(libs.kotlin.reflect)
 
     implementation(libs.auth.jwt)
+
+    implementation(libs.jackson.core)
+    implementation(libs.jackson.module.kotlin)
 }
 
 val compileKotlin: KotlinCompile by tasks
