@@ -15,6 +15,27 @@ class JwtService(
     private val expirationMs: Long = 3600000
     private val algorithm = Algorithm.HMAC256(secret)
 
+    fun isTokenValid(token: String): Boolean {
+        return try {
+            JWT.require(algorithm)
+                .withIssuer(issuer)
+                .build()
+                .verify(token)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun getRoles(token: String): List<String> {
+        val jwt = JWT.require(algorithm)
+            .withIssuer(issuer)
+            .build()
+            .verify(token)
+
+        return jwt.getClaim("roles").asList(String::class.java) ?: emptyList()
+    }
+
     fun generateToken(user: User): String = JWT.create()
         .withIssuer(issuer)
         .withSubject(user.id)

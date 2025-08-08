@@ -18,6 +18,7 @@ dependencies {
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.data.mongodb)
     implementation(libs.spring.boot.kafka)
+    implementation(libs.spring.boot.starter.security)
 
     implementation(libs.kotlin.reflect)
 
