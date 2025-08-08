@@ -48,7 +48,6 @@ class TempKeyService {
         expiredIds.forEach { id ->
             keysById.remove(id)?.let { key ->
                 keysByUserId.remove(key.userId)
-                println("🗑️ Expired temp key removed for userId=${key.userId}")
             }
         }
     }

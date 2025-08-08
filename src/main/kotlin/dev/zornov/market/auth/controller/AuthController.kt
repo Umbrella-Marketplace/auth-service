@@ -4,7 +4,7 @@ import dev.zornov.market.auth.dto.AuthRequest
 import dev.zornov.market.auth.dto.AuthResponse
 import dev.zornov.market.auth.repository.UserRepository
 import dev.zornov.market.auth.service.AuthService
-import dev.zornov.market.auth.service.LoginAcceptService
+import dev.zornov.market.auth.service.LoginApprovalService
 import dev.zornov.market.auth.service.TempKeyService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
@@ -18,7 +18,7 @@ class AuthController(
     private val userRepository: UserRepository,
     private val tempKeyService: TempKeyService,
     private val authService: AuthService,
-    private val loginAcceptService: LoginAcceptService
+    private val loginApprovalService: LoginApprovalService
 ) {
 
     @PostMapping
@@ -26,17 +26,17 @@ class AuthController(
         val user = userRepository.findById(req.id).orElse(null)
 
         return if (user != null) {
-            when (loginAcceptService.startRequest(req.id)) {
-                LoginAcceptService.RequestStatus.APPROVED -> {
+            when (loginApprovalService.startRequest(req.id)) {
+                LoginApprovalService.RequestStatus.APPROVED -> {
                     val jwt = authService.issueJwt(user)
                     ResponseEntity.ok(AuthResponse.AuthorizedResponse(jwt))
                 }
-                LoginAcceptService.RequestStatus.NEW -> {
+                LoginApprovalService.RequestStatus.NEW -> {
                     ResponseEntity.accepted()
                         .body(AuthResponse.WaitApproveResponse("Please approve login request"))
                 }
-                LoginAcceptService.RequestStatus.ALREADY_PENDING -> {
-                    if (loginAcceptService.isApproved(req.id)) {
+                LoginApprovalService.RequestStatus.ALREADY_PENDING -> {
+                    if (loginApprovalService.isApproved(req.id)) {
                         val jwt = authService.issueJwt(user)
                         ResponseEntity.ok(AuthResponse.AuthorizedResponse(jwt))
                     } else {

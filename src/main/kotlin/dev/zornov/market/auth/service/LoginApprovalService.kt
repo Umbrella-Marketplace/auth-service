@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service
 import java.util.concurrent.ConcurrentHashMap
 
 @Service
-class LoginAcceptService(
+class LoginApprovalService(
     private val kafka: KafkaTemplate<String, String>,
     private val objectMapper: ObjectMapper
 ) {
