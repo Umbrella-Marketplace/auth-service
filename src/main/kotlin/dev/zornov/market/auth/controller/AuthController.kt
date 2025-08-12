@@ -24,35 +24,28 @@ class AuthController(
     @PostMapping
     fun auth(@RequestBody req: AuthRequest): ResponseEntity<AuthResponse> {
         val user = userRepository.findById(req.id).orElse(null)
-
-        return if (user != null) {
-            when (loginApprovalService.startRequest(req.id)) {
-                LoginApprovalService.RequestStatus.APPROVED -> {
-                    val jwt = authService.issueJwt(user)
-                    ResponseEntity.ok(AuthResponse.AuthorizedResponse(jwt))
-                }
-                LoginApprovalService.RequestStatus.NEW -> {
-                    ResponseEntity.accepted()
-                        .body(AuthResponse.WaitApproveResponse("Please approve login request"))
-                }
-                LoginApprovalService.RequestStatus.ALREADY_PENDING -> {
-                    if (loginApprovalService.isApproved(req.id)) {
-                        val jwt = authService.issueJwt(user)
-                        ResponseEntity.ok(AuthResponse.AuthorizedResponse(jwt))
-                    } else {
-                        ResponseEntity.accepted()
-                            .body(AuthResponse.WaitApproveResponse("Login request still pending"))
-                    }
-                }
-            }
-        } else {
+        if (user == null) {
             val key = tempKeyService.createOrGet(req.id, req.name)
-            ResponseEntity.ok(
+            return ResponseEntity.ok(
                 AuthResponse.UnauthorizedResponse(
                     tempKey = key.id,
                     validUntil = key.validUntilTimestamp()
                 )
             )
+        }
+
+        return when (loginApprovalService.startRequest(req.id)) {
+            LoginApprovalService.RequestStatus.APPROVED -> {
+                ResponseEntity.ok(AuthResponse.AuthorizedResponse(authService.issueJwt(user)))
+            }
+            LoginApprovalService.RequestStatus.NEW -> {
+                ResponseEntity.accepted()
+                    .body(AuthResponse.WaitApproveResponse("Please approve login request"))
+            }
+            LoginApprovalService.RequestStatus.ALREADY_PENDING -> {
+                ResponseEntity.accepted()
+                    .body(AuthResponse.WaitApproveResponse("Login request still pending"))
+            }
         }
     }
 }
