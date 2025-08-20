@@ -15,20 +15,26 @@ repositories {
 }
 
 dependencies {
+    // Spring Boot
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.data.mongodb)
     implementation(libs.spring.boot.kafka)
     implementation(libs.spring.boot.starter.security)
+    implementation(libs.spring.boot.starter.oauth2.resource.server)
 
+    // Kotlin
     implementation(libs.kotlin.reflect)
 
-    implementation(libs.auth.jwt)
-
+    // JSON
     implementation(libs.jackson.core)
     implementation(libs.jackson.module.kotlin)
+
+    // JWT
+    implementation(libs.nimbus.jose.jwt)
 }
 
-val compileKotlin: KotlinCompile by tasks
-compileKotlin.compilerOptions {
-    freeCompilerArgs.set(listOf("-Xannotation-default-target=param-property"))
+tasks.withType<KotlinCompile> {
+    compilerOptions {
+        freeCompilerArgs.set(listOf("-Xannotation-default-target=param-property"))
+    }
 }

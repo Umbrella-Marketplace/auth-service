@@ -10,10 +10,6 @@ spring:
   kafka:
     bootstrap-servers: localhost:9092
 
-jwt:
-  secret: ${JWT_SECRET}
-  issuer: "market-auth-service"
-
 server:
   port: 8080
 
@@ -21,3 +17,9 @@ logging:
   level:
     org.springframework.data.mongodb.core.MongoTemplate: WARN
     org.mongodb.driver: WARN
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: "market-auth-service"
+    expiration-ms: 3600000

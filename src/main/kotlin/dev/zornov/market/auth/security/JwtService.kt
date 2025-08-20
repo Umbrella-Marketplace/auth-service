@@ -1,47 +1,43 @@
 package dev.zornov.market.auth.security
 
-import com.auth0.jwt.JWT
-import com.auth0.jwt.algorithms.Algorithm
+import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.JWSHeader
+import com.nimbusds.jose.crypto.MACSigner
+import com.nimbusds.jwt.JWTClaimsSet
+import com.nimbusds.jwt.SignedJWT
 import dev.zornov.market.auth.model.User
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import java.time.Instant
 import java.util.*
 
 @Service
 class JwtService(
-    @Value($$"${jwt.secret}") private val secret: String,
-    @Value($$"${jwt.issuer}") private val issuer: String
+    @Value($$"${app.jwt.secret}") private val secret: String,
+    @Value($$"${app.jwt.issuer}") private val issuer: String,
+    @Value($$"${app.jwt.expiration-ms}") private val expirationMs: Long
 ) {
-    private val expirationMs: Long = 3600000
-    private val algorithm = Algorithm.HMAC256(secret)
 
-    fun isTokenValid(token: String): Boolean {
-        return try {
-            JWT.require(algorithm)
-                .withIssuer(issuer)
-                .build()
-                .verify(token)
-            true
-        } catch (e: Exception) {
-            false
-        }
-    }
+    fun generateToken(user: User): String {
+        val now = Instant.now()
+        val exp = now.plusMillis(expirationMs)
 
-    fun getRoles(token: String): List<String> {
-        val jwt = JWT.require(algorithm)
-            .withIssuer(issuer)
+        val claims = JWTClaimsSet.Builder()
+            .issuer(issuer)
+            .subject(user.id)
+            .claim("name", user.name)
+            .claim("roles", user.roles.map { it.name })
+            .issueTime(Date.from(now))
+            .expirationTime(Date.from(exp))
             .build()
-            .verify(token)
 
-        return jwt.getClaim("roles").asList(String::class.java) ?: emptyList()
+        val signedJWT = SignedJWT(
+            JWSHeader.Builder(JWSAlgorithm.HS256).build(),
+            claims
+        )
+
+        signedJWT.sign(MACSigner(secret.toByteArray()))
+
+        return signedJWT.serialize()
     }
-
-    fun generateToken(user: User): String = JWT.create()
-        .withIssuer(issuer)
-        .withSubject(user.id)
-        .withClaim("name", user.name)
-        .withClaim("roles", user.roles.map { it.name })
-        .withIssuedAt(Date())
-        .withExpiresAt(Date(System.currentTimeMillis() + expirationMs))
-        .sign(algorithm)
 }

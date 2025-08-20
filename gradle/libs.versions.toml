@@ -2,7 +2,7 @@
 kotlin = "2.2.0"
 spring-boot = "3.5.4"
 spring-dependency-management = "1.1.7"
-jwt = "4.5.0"
+jwt = "10.4.2"
 jackson = "2.19.2"
 
 [libraries]
@@ -11,9 +11,10 @@ kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref =
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "spring-boot" }
 spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security", version.ref = "spring-boot" }
 spring-boot-starter-data-mongodb = { module = "org.springframework.boot:spring-boot-starter-data-mongodb", version.ref = "spring-boot" }
-spring-boot-kafka = { module = "org.springframework.kafka:spring-kafka" }
+spring-boot-kafka = { module = "org.springframework.kafka:spring-kafka", version.ref = "spring-boot" }
+spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server", version.ref = "spring-boot" }
 
-auth-jwt = { module = "com.auth0:java-jwt", version.ref = "jwt" }
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "jwt" }
 
 jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
 jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version.ref = "jackson" }
