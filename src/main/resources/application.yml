@@ -8,7 +8,7 @@ spring:
       database: auth-service
 
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: kafka:9092
 
 server:
   port: 8080
