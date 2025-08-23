@@ -36,7 +36,7 @@ class JwtService(
             claims
         )
 
-        signedJWT.sign(MACSigner(secret.toByteArray()))
+        signedJWT.sign(MACSigner(secret))
 
         return signedJWT.serialize()
     }
