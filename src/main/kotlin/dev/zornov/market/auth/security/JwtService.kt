@@ -26,7 +26,7 @@ class JwtService(
             .issuer(issuer)
             .subject(user.id)
             .claim("name", user.name)
-            .claim("roles", user.roles.map { it.name })
+            .claim("role", user.role)
             .issueTime(Date.from(now))
             .expirationTime(Date.from(exp))
             .build()
