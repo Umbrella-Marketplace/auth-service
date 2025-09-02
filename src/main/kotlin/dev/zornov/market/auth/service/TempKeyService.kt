@@ -41,6 +41,16 @@ class TempKeyService {
 
     fun getKey(id: UUID): Key? = keysById[id]?.takeUnless { it.isExpired() }
 
+    fun findValid(id: String): Key? {
+        val uuid = runCatching { UUID.fromString(id) }.getOrNull() ?: return null
+        return getKey(uuid)
+    }
+
+    fun consume(key: Key) {
+        keysById.remove(key.id)
+        keysByUserId.remove(key.userId)
+    }
+
     @Scheduled(fixedRate = TTL_SECONDS * 1000)
     fun clearExpiredKeys() {
         val expiredIds = keysById.filterValues { it.isExpired() }.keys
@@ -52,3 +62,4 @@ class TempKeyService {
         }
     }
 }
+

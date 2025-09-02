@@ -12,6 +12,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.access.IpAddressAuthorizationManager
 import java.nio.charset.StandardCharsets
 import javax.crypto.spec.SecretKeySpec
 
@@ -20,7 +21,6 @@ import javax.crypto.spec.SecretKeySpec
 class SecurityConfig(
     @Value($$"${app.jwt.secret}") private val jwtSecret: String
 ) {
-
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         return http
@@ -28,6 +28,7 @@ class SecurityConfig(
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
                 it
+                    .requestMatchers("/auth/verify").access(IpAddressAuthorizationManager.hasIpAddress("127.0.0.1"))
                     .requestMatchers("/auth/**").permitAll()
                     .anyRequest().authenticated()
             }
@@ -44,8 +45,8 @@ class SecurityConfig(
     private fun jwtAuthConverter(): JwtAuthenticationConverter {
         val converter = JwtAuthenticationConverter()
         converter.setJwtGrantedAuthoritiesConverter { jwt: Jwt ->
-            val roles = jwt.getClaim<List<String>>("roles") ?: emptyList()
-            roles.map { role -> SimpleGrantedAuthority("ROLE_$role") }
+            val role = jwt.getClaim<String>("role") ?: "USER"
+            listOf(SimpleGrantedAuthority("ROLE_$role"))
         }
         return converter
     }
